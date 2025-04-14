@@ -1,5 +1,8 @@
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes, CommandHandler, CallbackQueryHandler, MessageHandler, filters
+from models import Client, Session
+from core import db, app
+from datetime import datetime
 
 session_questions = {
     "free": {
@@ -28,7 +31,6 @@ session_questions = {
     }
 }
 
-# user_id -> state
 user_state = {}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -80,5 +82,56 @@ async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         summary = "\n".join(f"▪️ {q}\n🔹 {a}" for q, a in zip(questions, context.user_data["answers"]))
         await update.message.reply_text("📝 Вот, что вы написали:\n" + summary)
-        await update.message.reply_text("✅ Это ваш финальный запрос?")
+
+        keyboard = [
+            [
+                InlineKeyboardButton("✅ Подтвердить", callback_data="confirm"),
+                InlineKeyboardButton("🔄 Редактировать", callback_data="edit")
+            ]
+        ]
+        await update.message.reply_text(
+            "✅ Это ваш финальный запрос?",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        user_state[user_id] = "confirming"
+
+async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    session_type = context.user_data.get("session_type")
+
+    if query.data == "edit":
+        context.user_data["answers"] = []
+        context.user_data["current_question"] = 0
+        first_question = session_questions[session_type]["questions"][0]
+        await query.message.reply_text("🔄 Ок, давайте пройдём заново.")
+        await query.message.reply_text(first_question)
+        user_state[user_id] = "answering"
+        return
+
+    if query.data == "confirm":
+        user = query.from_user
+        with app.app_context():
+            client = Client.query.filter_by(telegram_id=user.id).first()
+            if not client:
+                client = Client(
+                    telegram_id=user.id,
+                    name=f"{user.first_name} {user.last_name or ''}".strip(),
+                    initial_request=context.user_data["answers"][0],
+                    username=user.username
+                )
+                db.session.add(client)
+                db.session.commit()
+
+            session = Session(
+                client_id=client.id,
+                session_type=session_type,
+                answers_json={q: a for q, a in zip(session_questions[session_type]["questions"], context.user_data["answers"])},
+                status="confirmed"
+            )
+            db.session.add(session)
+            db.session.commit()
+
+        await query.message.reply_text("✅ Запрос подтверждён и сохранён.")
         user_state[user_id] = None

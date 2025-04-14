@@ -8,15 +8,13 @@ CREATE TABLE clients (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Sessions table
+-- Sessions table (обновлённая под логику ассистента)
 CREATE TABLE sessions (
     id SERIAL PRIMARY KEY,
     client_id INTEGER REFERENCES clients(id) ON DELETE CASCADE,
-    scheduled_at TIMESTAMP NOT NULL,
-    duration_minutes INTEGER DEFAULT 60,
-    status TEXT DEFAULT 'pending', -- pending, confirmed, rejected
-    topic TEXT,
-    notes TEXT,
+    session_type TEXT NOT NULL,             -- 'free', 'paid', 'vip'
+    answers_json JSON NOT NULL,             -- JSON с вопросами и ответами
+    status TEXT DEFAULT 'draft',            -- 'draft', 'confirmed'
     created_at TIMESTAMP DEFAULT NOW()
 );
 
