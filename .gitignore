@@ -76,3 +76,4 @@ pgdata/
 hardresetproject.sh
 softresetproject.sh
 postgres-data/
+cat.sh
