@@ -16,3 +16,24 @@ CREATE TABLE IF NOT EXISTS sessions (
     status VARCHAR NOT NULL DEFAULT 'draft',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Версии вопросов
+CREATE TABLE IF NOT EXISTS question_versions (
+    id TEXT PRIMARY KEY,
+    owner_id BIGINT NOT NULL,
+    label TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    active BOOLEAN DEFAULT TRUE
+);
+
+-- Структура вопросов
+CREATE TABLE IF NOT EXISTS questions (
+    id SERIAL PRIMARY KEY,
+    version_id TEXT NOT NULL REFERENCES question_versions(id),
+    parent_id INTEGER REFERENCES questions(id),
+    text TEXT NOT NULL,
+    type TEXT DEFAULT 'text',
+    required BOOLEAN DEFAULT TRUE,
+    options JSON,
+    order INTEGER DEFAULT 0
+);
