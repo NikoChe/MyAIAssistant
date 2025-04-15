@@ -1,3 +1,5 @@
+\echo '👷 Старт выполнения init.sql'
+
 -- Таблица клиентов
 CREATE TABLE IF NOT EXISTS clients (
     id SERIAL PRIMARY KEY,
@@ -35,5 +37,7 @@ CREATE TABLE IF NOT EXISTS questions (
     type TEXT DEFAULT 'text',
     required BOOLEAN DEFAULT TRUE,
     options JSON,
-    order INTEGER DEFAULT 0
+    "order" INTEGER DEFAULT 0
 );
+
+\echo '✅ init.sql выполнен полностью'

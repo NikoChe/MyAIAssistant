@@ -1,4 +1,4 @@
-from telegram import Update
+from telegram import Update, BotCommand
 from telegram.ext import ContextTypes
 from models import Client, Session
 from core import app
@@ -37,9 +37,11 @@ async def sessions_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def set_bot_commands(bot):
-    from telegram import BotCommand
     commands = [
         BotCommand("start", "Запустить бота"),
-        BotCommand("sessions", "Показать последние заявки (админ)")
+        BotCommand("sessions", "Показать последние заявки (админ)"),
+        BotCommand("admin", "Настроить структуру вопросов"),
+        BotCommand("version_import", "Импорт структуры из default.json"),
+        BotCommand("version_export", "Экспорт текущей структуры")
     ]
     await bot.set_my_commands(commands)

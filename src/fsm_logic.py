@@ -1,104 +1,71 @@
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.ext import (
-    ContextTypes,
-    ConversationHandler,
-    CommandHandler,
-    CallbackQueryHandler,
-    MessageHandler,
-    filters,
-)
-from models import Client, Session
+from telegram.ext import ContextTypes, ConversationHandler, CallbackQueryHandler, MessageHandler, filters
+from models import Client, Session, QuestionVersion, Question
 from core import db, app
 from notifier import notify_admins
+from sqlalchemy import asc
 
 SELECT_TYPE, ANSWERING, CONFIRMING = range(3)
 
-session_questions = {
-    "free": {
-        "intro": "🔍 Бесплатная диагностическая сессия — это первая встреча, где мы разберем ваш запрос и посмотрим, как я могу помочь.",
-        "questions": [
-            "Какой ваш основной запрос. Что сейчас мешает или беспокоит?",
-            "Как это мешает в жизни?",
-            "Был ли опыт с другими специалистами, если да, то какой именно и каких целей достигли?"
-        ]
-    },
-    "paid": {
-        "intro": "💰 Платная консультация — полноценная сессия для проработки вашего запроса.",
-        "questions": [
-            "Какой ваш основной запрос на консультацию?",
-            "Какой устойчивый результат планируете получить?",
-            "Был ли опыт с другими специалистами, если да, то какой именно и каких целей достигли?"
-        ]
-    },
-    "vip": {
-        "intro": "👑 VIP сопровождение — индивидуальная работа с фокусом на результат и масштаб.",
-        "questions": [
-            "Какой ваш основной запрос на сопровождение?",
-            "Какой устойчивый результат планируете получить?",
-            "Был ли опыт с другими специалистами, если да, то какой именно и каких целей достигли?"
-        ]
-    }
-}
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [
-        [InlineKeyboardButton("🔍 Бесплатная диагностика", callback_data="free")],
-        [InlineKeyboardButton("💰 Платная консультация", callback_data="paid")],
-        [InlineKeyboardButton("👑 VIP сопровождение", callback_data="vip")],
-    ]
-    await update.message.reply_text(
-        "Выберите тип сессии:",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
-    return SELECT_TYPE
+    context.user_data.clear()
+    await update.message.reply_text("👋 Добро пожаловать! Сейчас проверим, всё ли готово для начала сессии...")
+    return await begin_session(update, context)
 
-async def handle_session_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    session_type = query.data
-    context.user_data["session_type"] = session_type
-    context.user_data["answers"] = []
-    context.user_data["current_question"] = 0
+async def begin_session(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    with app.app_context():
+        version = QuestionVersion.query.filter_by(owner_id=user_id, active=True).first()
+        if not version:
+            await update.message.reply_text("❗️Не найдена структура вопросов. Используй /admin и /version_import")
+            return ConversationHandler.END
 
-    intro = session_questions[session_type]["intro"]
-    await query.message.reply_text(intro)
-    await query.message.reply_text(session_questions[session_type]["questions"][0])
+        questions = Question.query.filter_by(version_id=version.id).order_by(asc(Question.order)).all()
+        if not questions:
+            await update.message.reply_text("❗️В версии нет ни одного вопроса.")
+            return ConversationHandler.END
+
+        context.user_data["questions"] = questions
+        context.user_data["answers"] = []
+        context.user_data["current"] = 0
+
+    return await ask_next_question(update, context)
+
+async def ask_next_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    current = context.user_data["current"]
+    questions = context.user_data["questions"]
+
+    if current >= len(questions):
+        summary = "\n\n".join(
+            f"❓ <b>{q.text}</b>\n🟢 {a}" for q, a in zip(questions, context.user_data["answers"])
+        )
+        await update.message.reply_text("📝 Вот, что вы написали:\n" + summary, parse_mode="HTML")
+
+        keyboard = [[
+            InlineKeyboardButton("✅ Подтвердить", callback_data="confirm"),
+            InlineKeyboardButton("🔄 Редактировать", callback_data="edit")
+        ]]
+        await update.message.reply_text("✅ Это ваш финальный запрос?", reply_markup=InlineKeyboardMarkup(keyboard))
+        return CONFIRMING
+
+    question = questions[current]
+    await update.message.reply_text(f"{question.text}")
     return ANSWERING
 
 async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    answer = update.message.text
-    session_type = context.user_data["session_type"]
-    context.user_data["answers"].append(answer)
-
-    current = context.user_data["current_question"] + 1
-    context.user_data["current_question"] = current
-
-    questions = session_questions[session_type]["questions"]
-    if current < len(questions):
-        await update.message.reply_text(questions[current])
-        return ANSWERING
-
-    summary = "\n".join(f"▪️ {q}\n🔹 {a}" for q, a in zip(questions, context.user_data["answers"]))
-    await update.message.reply_text("📝 Вот, что вы написали:\n" + summary)
-
-    keyboard = [
-        [InlineKeyboardButton("✅ Подтвердить", callback_data="confirm"),
-         InlineKeyboardButton("🔄 Редактировать", callback_data="edit")]
-    ]
-    await update.message.reply_text("✅ Это ваш финальный запрос?", reply_markup=InlineKeyboardMarkup(keyboard))
-    return CONFIRMING
+    context.user_data["answers"].append(update.message.text)
+    context.user_data["current"] += 1
+    return await ask_next_question(update, context)
 
 async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    session_type = context.user_data["session_type"]
 
     if query.data == "edit":
         context.user_data["answers"] = []
-        context.user_data["current_question"] = 0
+        context.user_data["current"] = 0
         await query.message.reply_text("🔄 Ок, давайте пройдём заново.")
-        await query.message.reply_text(session_questions[session_type]["questions"][0])
-        return ANSWERING
+        return await ask_next_question(query, context)
 
     if query.data == "confirm":
         user = query.from_user
@@ -116,8 +83,8 @@ async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE
 
             session = Session(
                 client_id=client.id,
-                session_type=session_type,
-                answers_json={q: a for q, a in zip(session_questions[session_type]["questions"], context.user_data["answers"])},
+                session_type="default",
+                answers_json={q.text: a for q, a in zip(context.user_data["questions"], context.user_data["answers"])},
                 status="confirmed"
             )
             db.session.add(session)
