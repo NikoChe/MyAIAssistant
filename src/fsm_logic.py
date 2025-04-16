@@ -9,7 +9,6 @@ SELECT_TYPE, ANSWERING, CONFIRMING = range(3)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
-    await update.message.reply_text("👋 Добро пожаловать! Сейчас проверим, всё ли готово для начала сессии...")
     return await begin_session(update, context)
 
 async def begin_session(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -17,11 +16,13 @@ async def begin_session(update: Update, context: ContextTypes.DEFAULT_TYPE):
     with app.app_context():
         version = QuestionVersion.query.filter_by(owner_id=user_id, active=True).first()
         if not version:
-            await update.message.reply_text("❗️Не найдена структура вопросов. Используй /admin и /version_import")
+            await update.message.reply_text("👋 Добро пожаловать! Сейчас проверим, всё ли готово для начала работы...")
+            await update.message.reply_text("❗️Не найдена активная структура вопросов. Используй /admin и /version_import")
             return ConversationHandler.END
 
         questions = Question.query.filter_by(version_id=version.id).order_by(asc(Question.order)).all()
         if not questions:
+            await update.message.reply_text("👋 Добро пожаловать! Сейчас проверим, всё ли готово для начала работы...")
             await update.message.reply_text("❗️В версии нет ни одного вопроса.")
             return ConversationHandler.END
 

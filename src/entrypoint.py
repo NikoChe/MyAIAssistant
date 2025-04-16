@@ -23,6 +23,14 @@ from fsm_logic import (
 
 from admin_commands import sessions_command, set_bot_commands
 from admin_config_editor import admin_command, version_export_command, version_import_command
+from upload_questions_handler import (
+    upload_questions_command,
+    handle_uploaded_file,
+    confirm_import_callback,
+    AWAIT_FILE,
+    CONFIRM_UPLOAD,
+)
+
 from core import app  # готовый Flask app
 
 logging.basicConfig(level=logging.INFO)
@@ -46,8 +54,17 @@ conv_handler = ConversationHandler(
     },
     fallbacks=[]
 )
-
 telegram_app.add_handler(conv_handler)
+
+upload_conv_handler = ConversationHandler(
+    entry_points=[CommandHandler("upload_questions", upload_questions_command)],
+    states={
+        AWAIT_FILE: [MessageHandler(filters.Document.ALL, handle_uploaded_file)],
+        CONFIRM_UPLOAD: [CallbackQueryHandler(confirm_import_callback, pattern="^confirm_import$")],
+    },
+    fallbacks=[],
+)
+telegram_app.add_handler(upload_conv_handler)
 
 # Основные команды
 telegram_app.add_handler(CommandHandler("sessions", sessions_command))
