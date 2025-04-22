@@ -42,6 +42,7 @@ async def set_bot_commands(bot):
         BotCommand("sessions", "Показать последние заявки (админ)"),
         BotCommand("admin", "Настроить структуру вопросов"),
         BotCommand("version_import", "Импорт структуры из default.json"),
-        BotCommand("version_export", "Экспорт текущей структуры")
+        BotCommand("version_export", "Экспорт текущей структуры"),
+        BotCommand("upload_questions", "Загрузить структуру вопросов (файл)")  # 🔥 добавлено
     ]
     await bot.set_my_commands(commands)

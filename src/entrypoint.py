@@ -46,6 +46,7 @@ telegram_app = (
     .build()
 )
 
+# FSM для основной сессии
 conv_handler = ConversationHandler(
     entry_points=[CommandHandler("start", start)],
     states={
@@ -56,6 +57,7 @@ conv_handler = ConversationHandler(
 )
 telegram_app.add_handler(conv_handler)
 
+# FSM для импорта JSON-файла
 upload_conv_handler = ConversationHandler(
     entry_points=[CommandHandler("upload_questions", upload_questions_command)],
     states={

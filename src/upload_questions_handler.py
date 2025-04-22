@@ -76,7 +76,7 @@ async def confirm_import_callback(update: Update, context: ContextTypes.DEFAULT_
     # Импорт
     with app.app_context():
         version_id = "v" + datetime.utcnow().strftime("%Y%m%d%H%M%S")
-        version = QuestionVersion(id=version_id, owner_id=user_id, label="Импорт " + version_id)
+        version = QuestionVersion(id=version_id, owner_id=user_id, label="Импорт " + version_id, public_access=True)
         db.session.add(version)
         db.session.flush()
 

@@ -15,3 +15,5 @@ def create_app():
     return app
 
 app = create_app()  # <- экспортируем единый экземпляр
+metadata = db.metadata  # ✅ для alembic
+import src.models

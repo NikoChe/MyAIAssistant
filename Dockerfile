@@ -13,5 +13,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Копируем всё
 COPY . .
 
+ENV PYTHONPATH=/app
+
 # Миграция и запуск
 CMD ["sh", "-c", "alembic upgrade head && python src/entrypoint.py"]

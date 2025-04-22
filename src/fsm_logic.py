@@ -3,7 +3,7 @@ from telegram.ext import ContextTypes, ConversationHandler, CallbackQueryHandler
 from models import Client, Session, QuestionVersion, Question
 from core import db, app
 from notifier import notify_admins
-from sqlalchemy import asc
+from sqlalchemy import asc, or_
 
 SELECT_TYPE, ANSWERING, CONFIRMING = range(3)
 
@@ -14,7 +14,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def begin_session(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     with app.app_context():
-        version = QuestionVersion.query.filter_by(owner_id=user_id, active=True).first()
+        version = QuestionVersion.query.filter(
+            QuestionVersion.active == True,
+            or_(
+                QuestionVersion.owner_id == user_id,
+                QuestionVersion.public_access == True
+            )
+        ).first()
+
         if not version:
             await update.message.reply_text("👋 Добро пожаловать! Сейчас проверим, всё ли готово для начала работы...")
             await update.message.reply_text("❗️Не найдена активная структура вопросов. Используй /admin и /version_import")
