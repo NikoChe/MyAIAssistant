@@ -1,0 +1,34 @@
+[
+  {
+    "text": "В чем ваш основной запрос на сессию? Что сейчас мешает, тревожит или беспокоит?",
+    "type": "text",
+    "required": true,
+    "options": null,
+    "order": 0,
+    "parent_id": null
+  },
+  {
+    "text": "Какие трудности из-за этого у вас в жизни??",
+    "type": "text",
+    "required": true,
+    "options": null,
+    "order": 1,
+    "parent_id": null
+  },
+  {
+    "text": "Какой устойчивый результат планируете получить?",
+    "type": "text",
+    "required": true,
+    "options": null,
+    "order": 2,
+    "parent_id": null
+  },
+  {
+    "text": "Был ли опыт с другими специалистами, если да, то какой именно и каких целей достигли?",
+    "type": "text",
+    "required": true,
+    "options": null,
+    "order": 3,
+    "parent_id": null
+  }
+]

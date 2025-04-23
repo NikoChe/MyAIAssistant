@@ -14,7 +14,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def begin_session(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     with app.app_context():
-        version = QuestionVersion.query.filter(
+        version = db.session.query(QuestionVersion).filter(
             QuestionVersion.active == True,
             or_(
                 QuestionVersion.owner_id == user_id,
@@ -27,7 +27,7 @@ async def begin_session(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("❗️Не найдена активная структура вопросов. Используй /admin и /version_import")
             return ConversationHandler.END
 
-        questions = Question.query.filter_by(version_id=version.id).order_by(asc(Question.order)).all()
+        questions = db.session.query(Question).filter_by(version_id=version.id).order_by(asc(Question.order)).all()
         if not questions:
             await update.message.reply_text("👋 Добро пожаловать! Сейчас проверим, всё ли готово для начала работы...")
             await update.message.reply_text("❗️В версии нет ни одного вопроса.")
@@ -78,7 +78,7 @@ async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE
     if query.data == "confirm":
         user = query.from_user
         with app.app_context():
-            client = Client.query.filter_by(telegram_id=user.id).first()
+            client = db.session.query(Client).filter_by(telegram_id=user.id).first()
             if not client:
                 client = Client(
                     telegram_id=user.id,

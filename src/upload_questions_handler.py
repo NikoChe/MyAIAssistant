@@ -9,7 +9,6 @@ from datetime import datetime
 UPLOAD_PATH = "/app/data/uploads/"
 AWAIT_FILE, CONFIRM_UPLOAD = range(2)
 
-# Команда /upload_questions
 async def upload_questions_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not is_owner(user_id):
@@ -19,7 +18,6 @@ async def upload_questions_command(update: Update, context: ContextTypes.DEFAULT
     await update.message.reply_text("📎 Отправьте .json файл со структурой вопросов.")
     return AWAIT_FILE
 
-# Обработка загруженного файла
 async def handle_uploaded_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     doc: Document = update.message.document
     user_id = update.effective_user.id
@@ -31,7 +29,9 @@ async def handle_uploaded_file(update: Update, context: ContextTypes.DEFAULT_TYP
     os.makedirs(UPLOAD_PATH, exist_ok=True)
     timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
     file_path = os.path.join(UPLOAD_PATH, f"version_import_{user_id}_{timestamp}.json")
-    await doc.get_file().download_to_drive(file_path)
+
+    file = await doc.get_file()
+    await file.download_to_drive(file_path)
 
     context.user_data["uploaded_file_path"] = file_path
     await update.message.reply_text(
@@ -42,7 +42,6 @@ async def handle_uploaded_file(update: Update, context: ContextTypes.DEFAULT_TYP
     )
     return CONFIRM_UPLOAD
 
-# Подтверждение импорта
 async def confirm_import_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -60,20 +59,18 @@ async def confirm_import_callback(update: Update, context: ContextTypes.DEFAULT_
         await query.message.reply_text("⚠️ Упс! Что-то пошло не так. Проверьте файл и загрузите заново.")
         return ConversationHandler.END
 
-    # Проверка вложенности
     def depth_check(questions, parent_map=None, current_id=None, depth=0):
         if depth > 5:
             return False
         if not parent_map:
-            parent_map = {q.get("id"): q.get("parent_id") for q in questions}
-        children = [q.get("id") for q in questions if q.get("parent_id") == current_id]
+            parent_map = {i: q.get("parent_id") for i, q in enumerate(questions)}
+        children = [i for i, pid in parent_map.items() if pid == current_id]
         return all(depth_check(questions, parent_map, cid, depth + 1) for cid in children)
 
     if not depth_check(data):
         await query.message.reply_text("⚠️ Вопросы превышают допустимую вложенность (максимум 5 уровней). Импорт прерван.")
         return ConversationHandler.END
 
-    # Импорт
     with app.app_context():
         version_id = "v" + datetime.utcnow().strftime("%Y%m%d%H%M%S")
         version = QuestionVersion(id=version_id, owner_id=user_id, label="Импорт " + version_id, public_access=True)
@@ -91,7 +88,7 @@ async def confirm_import_callback(update: Update, context: ContextTypes.DEFAULT_
                 parent_id=q.get("parent_id")
             ))
 
-        QuestionVersion.query.filter_by(owner_id=user_id).update({QuestionVersion.active: False})
+        db.session.query(QuestionVersion).filter_by(owner_id=user_id).update({QuestionVersion.active: False})
         version.active = True
         db.session.commit()
 
